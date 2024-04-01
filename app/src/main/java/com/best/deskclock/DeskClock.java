@@ -28,6 +28,7 @@ import static androidx.viewpager.widget.ViewPager.SCROLL_STATE_DRAGGING;
 import static androidx.viewpager.widget.ViewPager.SCROLL_STATE_IDLE;
 import static androidx.viewpager.widget.ViewPager.SCROLL_STATE_SETTLING;
 import static com.best.deskclock.AnimatorUtils.getScaleAnimator;
+import static com.best.deskclock.settings.SettingsActivity.KEY_AMOLED_DARK_MODE;
 
 import android.Manifest;
 import android.animation.Animator;
@@ -40,6 +41,8 @@ import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -80,8 +83,8 @@ import com.google.android.material.snackbar.Snackbar;
 import java.util.ArrayList;
 
 /**
- * The main activity of the application which displays 4 different tabs contains alarms, world
- * clocks, timers and a stopwatch.
+ * The main activity of the application which displays 5 different tabs contains alarms, world
+ * clocks, timers, stopwatch and bedtime.
  */
 public class DeskClock extends AppCompatActivity
         implements FabContainer, LabelDialogFragment.AlarmLabelDialogHandler {
@@ -212,6 +215,8 @@ public class DeskClock extends AppCompatActivity
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        Utils.applyTheme(this);
+
         final ActionBar actionBar = getSupportActionBar();
         if (actionBar != null) {
             actionBar.setDisplayHomeAsUpEnabled(true);
@@ -318,9 +323,23 @@ public class DeskClock extends AppCompatActivity
         mFragmentTabPager.setAdapter(mFragmentTabPagerAdapter);
 
         // Mirror changes made to the selected tab into UiDataModel.
+        final String getDarkMode = DataModel.getDataModel().getDarkMode();
         mBottomNavigation = findViewById(R.id.bottom_view);
         mBottomNavigation.setOnItemSelectedListener(mNavigationListener);
-        mBottomNavigation.setBackgroundColor(getColor(R.color.md_theme_surface));
+        if (Utils.isNight(getResources()) && getDarkMode.equals(KEY_AMOLED_DARK_MODE)) {
+            mBottomNavigation.setBackgroundColor(Color.BLACK);
+            mBottomNavigation.setItemActiveIndicatorEnabled(false);
+            mBottomNavigation.setItemTextColor(new ColorStateList(
+                    new int[][]{{android.R.attr.state_selected}, {android.R.attr.state_pressed}, {}},
+                    new int[]{getColor(R.color.md_theme_primary), getColor(R.color.md_theme_primary), Color.WHITE})
+            );
+            mBottomNavigation.setItemIconTintList(new ColorStateList(
+                    new int[][]{{android.R.attr.state_selected}, {android.R.attr.state_pressed}, {}},
+                    new int[]{getColor(R.color.md_theme_primary), getColor(R.color.md_theme_primary), Color.WHITE})
+            );
+        } else {
+            mBottomNavigation.setBackgroundColor(getColor(R.color.md_theme_surface));
+        }
 
         // Honor changes to the selected tab from outside entities.
         UiDataModel.getUiDataModel().addTabListener(mTabChangeWatcher);

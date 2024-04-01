@@ -131,7 +131,6 @@ public final class ScreensaverSettingsActivity extends CollapsingToolbarBaseActi
             switch (pref.getKey()) {
                 case KEY_SS_PREVIEW -> {
                     context.startActivity(new Intent(context, ScreensaverActivity.class)
-                            .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                             .putExtra(Events.EXTRA_EVENT_LABEL, R.string.label_deskclock));
                     return true;
                 }
@@ -197,13 +196,13 @@ public final class ScreensaverSettingsActivity extends CollapsingToolbarBaseActi
             mBoldDigitalClockPref.setVisible(mClockStyle.getValue().equals(digitalClockStyle));
             mItalicDigitalClockPref.setVisible(mClockStyle.getValue().equals(digitalClockStyle));
 
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-                getPreferenceScreen().removePreference(mClockDynamicColorPref);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                mClockDynamicColorPref.setVisible(true);
+                mClockDynamicColorPref.setChecked(DataModel.getDataModel().getScreensaverClockDynamicColors());
+                mClockPresetColorsPref.setVisible(!mClockDynamicColorPref.isChecked());
+                mDatePresetColorsPref.setVisible(!mClockDynamicColorPref.isChecked());
+                mNextAlarmPresetColorsPref.setVisible(!mClockDynamicColorPref.isChecked());
             }
-            mClockDynamicColorPref.setChecked(DataModel.getDataModel().getScreensaverClockDynamicColors());
-            mClockPresetColorsPref.setVisible(!mClockDynamicColorPref.isChecked());
-            mDatePresetColorsPref.setVisible(!mClockDynamicColorPref.isChecked());
-            mNextAlarmPresetColorsPref.setVisible(!mClockDynamicColorPref.isChecked());
         }
 
         private void refresh() {

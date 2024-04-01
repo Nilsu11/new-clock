@@ -24,6 +24,12 @@ import static android.content.res.Configuration.ORIENTATION_LANDSCAPE;
 import static android.content.res.Configuration.ORIENTATION_PORTRAIT;
 import static android.graphics.Bitmap.Config.ARGB_8888;
 
+import static com.best.deskclock.settings.SettingsActivity.DARK_THEME;
+import static com.best.deskclock.settings.SettingsActivity.KEY_AMOLED_DARK_MODE;
+import static com.best.deskclock.settings.SettingsActivity.KEY_DEFAULT_DARK_MODE;
+import static com.best.deskclock.settings.SettingsActivity.LIGHT_THEME;
+import static com.best.deskclock.settings.SettingsActivity.SYSTEM_THEME;
+
 import android.app.AlarmManager;
 import android.app.AlarmManager.AlarmClockInfo;
 import android.app.PendingIntent;
@@ -31,6 +37,8 @@ import android.appwidget.AppWidgetManager;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -64,6 +72,8 @@ import android.widget.TextView;
 
 import androidx.annotation.AnyRes;
 import androidx.annotation.StringRes;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.graphics.drawable.DrawableKt;
 import androidx.core.graphics.ColorUtils;
@@ -276,9 +286,20 @@ public class Utils {
         }
 
         final Locale l = Locale.getDefault();
-        final String datePattern = DateFormat.getBestDateTimePattern(l, dateSkeleton);
-        final String descriptionPattern = DateFormat.getBestDateTimePattern(l, descriptionSkeleton);
+        String datePattern = DateFormat.getBestDateTimePattern(l, dateSkeleton);
+        if (dateDisplay.getContext() instanceof ScreensaverActivity || dateDisplay.getContext() instanceof Screensaver) {
+            // Add a "Thin Space" (\u2009) at the end of the date to prevent its display from being cut off on some devices.
+            // (The display of the date is only cut off at the end if it is defined in italics in the screensaver settings).
+            final boolean isItalicDate = DataModel.getDataModel().getScreensaverItalicDate();
+            final boolean isItalicNextAlarm = DataModel.getDataModel().getScreensaverItalicNextAlarm();
+            if (isItalicDate) {
+                datePattern = "\u2009" + DateFormat.getBestDateTimePattern(l, dateSkeleton) + "\u2009";
+            } else if (isItalicNextAlarm) {
+                datePattern = "\u2009" + DateFormat.getBestDateTimePattern(l, dateSkeleton);
+            }
+        }
 
+        final String descriptionPattern = DateFormat.getBestDateTimePattern(l, descriptionSkeleton);
         final Date now = new Date();
         dateDisplay.setText(new SimpleDateFormat(datePattern, l).format(now));
         dateDisplay.setVisibility(View.VISIBLE);
@@ -295,9 +316,9 @@ public class Utils {
     public static void setTimeFormat(TextClock clock, boolean includeSeconds) {
         if (clock != null) {
             // Get the best format for 12 hours mode according to the locale
-            clock.setFormat12Hour(get12ModeFormat(0.4f, includeSeconds));
+            clock.setFormat12Hour(get12ModeFormat(clock.getContext(), 0.4f, includeSeconds));
             // Get the best format for 24 hours mode according to the locale
-            clock.setFormat24Hour(get24ModeFormat(includeSeconds));
+            clock.setFormat24Hour(get24ModeFormat(clock.getContext(), includeSeconds));
         }
     }
 
@@ -456,13 +477,13 @@ public class Utils {
         final DataModel.ClockStyle screensaverClockStyle = DataModel.getDataModel().getScreensaverClockStyle();
         switch (screensaverClockStyle) {
             case ANALOG -> {
-                setTimeFormat(digitalClock, false);
+                setScreensaverTimeFormat(digitalClock, false);
                 analogClock.enableSeconds(displaySeconds);
                 return;
             }
             case DIGITAL -> {
                 analogClock.enableSeconds(false);
-                setTimeFormat(digitalClock, displaySeconds);
+                setScreensaverTimeFormat(digitalClock, displaySeconds);
                 return;
             }
         }
@@ -475,13 +496,16 @@ public class Utils {
      *
      * @param digitalClock TextClock to format
      */
-    public static void setScreensaverTimeFormat(TextClock digitalClock) {
+    public static void setScreensaverTimeFormat(TextClock digitalClock, boolean includeSeconds) {
         final boolean boldText = DataModel.getDataModel().getScreensaverBoldDigitalClock();
         final boolean italicText = DataModel.getDataModel().getScreensaverItalicDigitalClock();
 
         if (digitalClock == null) {
             return;
         }
+
+        digitalClock.setFormat12Hour(get12ModeFormat(digitalClock.getContext(), 0.4f, includeSeconds));
+        digitalClock.setFormat24Hour(get24ModeFormat(digitalClock.getContext(), includeSeconds));
 
         if (boldText && italicText) {
             digitalClock.setTypeface(Typeface.defaultFromStyle(Typeface.BOLD_ITALIC));
@@ -578,10 +602,8 @@ public class Utils {
         dimDateView(date, context);
         dimNextAlarmView(nextAlarmIcon, nextAlarm, context);
         setScreensaverClockSecondsEnabled(textClock, analogClock);
-        setClockIconTypeface(nextAlarmIcon);
-        setScreensaverTimeFormat(textClock);
-        //setScreensaverItalicTime(textClock);
         setScreensaverDateFormat(date);
+        setClockIconTypeface(nextAlarmIcon);
         setScreensaverNextAlarmFormat(nextAlarm);
     }
 
@@ -591,15 +613,26 @@ public class Utils {
      * @param includeSeconds whether or not to include seconds in the time string
      * @return format string for 12 hours mode time, not including seconds
      */
-    public static CharSequence get12ModeFormat(float amPmRatio, boolean includeSeconds) {
+    public static CharSequence get12ModeFormat(Context context, float amPmRatio, boolean includeSeconds) {
         String pattern = DateFormat.getBestDateTimePattern(Locale.getDefault(),
                 includeSeconds ? "hmsa" : "hma");
-        if (amPmRatio <= 0) {
-            pattern = pattern.replaceAll("a", "").trim();
-        }
 
         // Replace spaces with "Hair Space"
-        pattern = pattern.replaceAll(" ", "\u200A");
+        pattern = pattern.replaceAll("\\s", "\u200A");
+
+        if (amPmRatio <= 0) {
+            pattern = pattern.replaceAll("a", "").trim();
+        } else {
+            if (context instanceof ScreensaverActivity || context instanceof Screensaver) {
+                final boolean isItalic = DataModel.getDataModel().getScreensaverItalicDigitalClock();
+                if (isItalic) {
+                    // For screensaver, add a "Hair Space" (\u200A) at the end of the AM/PM to prevent
+                    // its display from being cut off on some devices when in italic.
+                    pattern = pattern.replaceAll("a", "a" + "\u200A");
+                }
+            }
+        }
+
         // Build a spannable so that the am/pm will be formatted
         int amPmPos = pattern.indexOf('a');
         if (amPmPos == -1) {
@@ -609,13 +642,24 @@ public class Utils {
         final Spannable sp = new SpannableString(pattern);
         sp.setSpan(new RelativeSizeSpan(amPmRatio), amPmPos, amPmPos + 1, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
         sp.setSpan(new StyleSpan(Typeface.NORMAL), amPmPos, amPmPos + 1, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-        sp.setSpan(new TypefaceSpan("sans-serif"), amPmPos, amPmPos + 1, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        sp.setSpan(new TypefaceSpan("sans-serif-bold"), amPmPos, amPmPos + 1, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
 
         return sp;
     }
 
-    public static CharSequence get24ModeFormat(boolean includeSeconds) {
-        return DateFormat.getBestDateTimePattern(Locale.getDefault(), includeSeconds ? "Hms" : "Hm");
+    public static CharSequence get24ModeFormat(Context context, boolean includeSeconds) {
+        if (context instanceof ScreensaverActivity || context instanceof Screensaver) {
+            final boolean isItalic = DataModel.getDataModel().getScreensaverItalicDigitalClock();
+            if (isItalic) {
+                // For screensaver, add a "Hair Space" (\u200A) at the end of the time to prevent
+                // its display from being cut off on some devices when in italic.
+                return DateFormat.getBestDateTimePattern(Locale.getDefault(), includeSeconds ? "Hms" : "Hm") + "\u2009";
+            } else {
+                return DateFormat.getBestDateTimePattern(Locale.getDefault(), includeSeconds ? "Hms" : "Hm");
+            }
+        } else {
+            return DateFormat.getBestDateTimePattern(Locale.getDefault(), includeSeconds ? "Hms" : "Hm");
+        }
     }
 
     /**
@@ -697,13 +741,19 @@ public class Utils {
      * Convenience method for creating card background.
      */
     public static Drawable cardBackground (Context context) {
-        final int color = context.getColor(R.color.md_theme_primary);
+        final String getDarkMode = DataModel.getDataModel().getDarkMode();
+        final int color;
+        // Setting transparency is necessary to avoid flickering when expanding or collapsing alarms.
+        // Todo: find a way to get rid of this transparency and use the real color R.color.md_theme_surface
+        if (isNight(context.getResources()) && getDarkMode.equals(KEY_AMOLED_DARK_MODE)) {
+            color = ColorUtils.setAlphaComponent(context.getColor(R.color.md_theme_inversePrimary), 90);
+        } else {
+            color = ColorUtils.setAlphaComponent(context.getColor(R.color.md_theme_primary), 20);
+        }
         final int radius = toPixel(12, context);
         final GradientDrawable gradientDrawable = new GradientDrawable();
         gradientDrawable.setCornerRadius(radius);
-        // Setting transparency is necessary to avoid flickering when expanding or collapsing alarms.
-        // Todo: find a way to get rid of this transparency and use the real color R.color.md_theme_surface
-        gradientDrawable.setColor(ColorUtils.setAlphaComponent(color, 20));
+        gradientDrawable.setColor(color);
         return gradientDrawable;
     }
 
@@ -823,4 +873,35 @@ public class Utils {
             vibrator.vibrate(milliseconds);
         }
     }
+
+    /**
+     * @return {@code true} if the device is in dark mode.
+     * @param res Access application resources.
+     */
+    public static boolean isNight(final Resources res) {
+        return (res.getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+    }
+
+    /**
+     * Apply the theme to the activities.
+     */
+    public static void applyTheme(final AppCompatActivity activity) {
+        final String getTheme = DataModel.getDataModel().getTheme();
+        final String getDarkMode = DataModel.getDataModel().getDarkMode();
+
+        if (getDarkMode.equals(KEY_DEFAULT_DARK_MODE)) {
+            switch (getTheme) {
+                case SYSTEM_THEME ->
+                        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
+                case LIGHT_THEME ->
+                        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
+                case DARK_THEME ->
+                        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
+            }
+        } else if (getDarkMode.equals(KEY_AMOLED_DARK_MODE)
+                && !getTheme.equals(SYSTEM_THEME) || !getTheme.equals(LIGHT_THEME)) {
+                activity.setTheme(R.style.AmoledTheme);
+        }
+    }
+
 }

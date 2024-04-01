@@ -229,7 +229,6 @@ public final class ClockFragment extends DeskClockFragment {
         @Override
         public boolean onLongClick(View view) {
             startActivity(new Intent(getActivity(), ScreensaverActivity.class)
-                    .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     .putExtra(Events.EXTRA_EVENT_LABEL, R.string.label_deskclock));
             return true;
         }
@@ -390,8 +389,8 @@ public final class ClockFragment extends DeskClockFragment {
                     mAnalogClock.setVisibility(GONE);
                     mDigitalClock.setVisibility(VISIBLE);
                     mDigitalClock.setTimeZone(cityTimeZoneId);
-                    mDigitalClock.setFormat12Hour(Utils.get12ModeFormat(0.3f, false));
-                    mDigitalClock.setFormat24Hour(Utils.get24ModeFormat(false));
+                    mDigitalClock.setFormat12Hour(Utils.get12ModeFormat(mDigitalClock.getContext(), 0.3f, false));
+                    mDigitalClock.setFormat24Hour(Utils.get24ModeFormat(mDigitalClock.getContext(), false));
                 }
 
                 itemView.setBackground(Utils.cardBackground(context));
