@@ -64,6 +64,18 @@
     <!-- Label for "Device sounds" section on ringtone selection screen [CHAR LIMIT=60] -->
     <string name="device_sounds">Device sounds</string>
 
+    <!-- Label for "Songs" section on ringtone selection screen -->
+    <string name="tab_songs">Songs</string>
+
+    <!-- Label for "Albums" section on ringtone selection screen -->
+    <string name="tab_albums">Albums</string>
+
+    <!-- Label for "Albums" section on ringtone selection screen -->
+    <string name="tab_artists">Artists</string>
+
+    <!-- Label for "Playlists" section on ringtone selection screen -->
+    <string name="tab_playlists">Playlists</string>
+
     <!-- Text that explains that the ringtone is inaccessible to the app [CHAR LIMIT=NONE] -->
     <string name="custom_ringtone_lost_permissions">The sound content cannot be accessed.</string>
 
@@ -442,6 +454,9 @@
 
     <!-- Title for ringtones that cannot be located by uri. -->
     <string name="unknown_ringtone_title">Unknown</string>
+
+    <!-- Title for artists that cannot be located by uri. -->
+    <string name="unknown_artist_title">Unknown artist</string>
 
     <!-- Text to display when alarm volume is muted. [CHAR LIMIT=50] -->
     <string name="alarm_volume_muted">Alarm volume muted</string>
@@ -1334,9 +1349,4 @@
     <!-- Setting dialog button to access to Full Screen Notifications settings -->
     <string name="dialog_button_full_screen_intent">Full Screen Notifications Access</string>
 
-
-    <string name="tab_songs">Songs</string>
-    <string name="tab_albums">Albums</string>
-    <string name="tab_artists">Artists</string>
-    <string name="tab_playlists">Playlists</string>
 </resources>

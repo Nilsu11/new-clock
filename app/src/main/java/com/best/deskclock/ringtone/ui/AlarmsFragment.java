@@ -14,7 +14,7 @@ public class AlarmsFragment extends BasePickerFragment {
         RingtoneManager ringtoneManager = new RingtoneManager(context);
         ringtoneManager.setType(RingtoneManager.TYPE_ALARM);
         Cursor cursor = ringtoneManager.getCursor();
-        ArrayList<RingtoneItem> list = new ArrayList<RingtoneItem>();
+        ArrayList<RingtoneItem> list = new ArrayList<>();
 
         while (cursor.moveToNext()) {
             RingtoneItem item = new RingtoneItem();

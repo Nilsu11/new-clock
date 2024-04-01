@@ -37,7 +37,7 @@ public class AlbumsFragment extends BasePickerFragment {
                 MediaStore.Audio.Albums.ARTIST
         };
 
-        ArrayList<RingtoneItem> list = new ArrayList<RingtoneItem>();
+        ArrayList<RingtoneItem> list = new ArrayList<>();
 
         Cursor cursor = context.getContentResolver().query(
                 MediaStore.Audio.Albums.EXTERNAL_CONTENT_URI,
@@ -52,14 +52,17 @@ public class AlbumsFragment extends BasePickerFragment {
                     String.valueOf(cursor.getLong(0)));
             String title = cursor.getString(1);
             String artist = cursor.getString(2);
-            Uri sArtworkUri = Uri
-                    .parse("content://media/external/audio/albumart");
+            Uri sArtworkUri = Uri.parse("content://media/external/audio/albumart");
             Uri albumArtUri = ContentUris.withAppendedId(sArtworkUri, cursor.getLong(0));
 
             RingtoneItem item = new RingtoneItem();
             item.title = title;
             item.uri = album.toString();
-            item.desc = artist;
+            if (artist.equals(MediaStore.UNKNOWN_STRING)) {
+                item.desc = context.getString(R.string.unknown_artist_title);
+            } else {
+                item.desc = artist;
+            }
             item.iconId = R.drawable.ic_media_albums;
             item.imageUri = albumArtUri.toString();
             list.add(item);

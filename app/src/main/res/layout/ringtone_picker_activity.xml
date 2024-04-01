@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!--
+    SPDX-License-Identifier: Apache-2.0
+-->
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
@@ -22,13 +26,12 @@
             android:id="@+id/tab_layout"
             android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:background="#00000000"
-            app:tabBackground="@drawable/bg_bedtime_bottom_sheet"
-            app:tabIndicator="@drawable/bg_bedtime_bottom_sheet"
+            android:background="@null"
+            app:tabIndicator="@drawable/rounded_top_background"
             app:tabIndicatorGravity="stretch"
             app:tabIndicatorFullWidth="true"
             app:tabMinWidth="0dp"
-            app:tabRippleColor="?attr/colorSurface"
+            app:tabRippleColor="@android:color/transparent"
             app:tabMode="scrollable"
             app:tabPaddingStart="14dp"
             app:tabPaddingEnd="14dp"

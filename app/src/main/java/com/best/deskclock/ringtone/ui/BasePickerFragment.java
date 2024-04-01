@@ -19,8 +19,6 @@ package com.best.deskclock.ringtone.ui;
 
 
 import android.content.Context;
-import android.content.res.ColorStateList;
-import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.media.AudioManager;
 import android.net.Uri;
@@ -33,7 +31,7 @@ import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 
-import androidx.core.graphics.ColorUtils;
+import androidx.appcompat.content.res.AppCompatResources;
 import androidx.fragment.app.Fragment;
 
 import com.best.deskclock.ringtone.RingtoneItem;
@@ -62,17 +60,15 @@ public abstract class BasePickerFragment extends Fragment {
         mList = getList(getContext());
         mAdapter = adapter(mList);
         list.setAdapter(mAdapter);
-        int c = getActivity().getColor(R.color.md_theme_primary);
-        c = Color.argb(88, Color.red(c), Color.green(c), Color.blue(c));
-        list.setBackgroundColor(ColorUtils.compositeColors(c, getActivity().getColor(R.color.md_theme_surface)));
+        list.setBackgroundColor(requireContext().getColor(R.color.md_theme_surface));
         return v;
     }
 
     public ArrayAdapter<RingtoneItem> adapter(ArrayList<RingtoneItem> list) {
-        return new ArrayAdapter<RingtoneItem>(getActivity(), R.layout.ringtone_item_sound, list) {
+        return new ArrayAdapter<>(getActivity(), R.layout.ringtone_item_sound, list) {
             @Override
             public View getView(int position, View view, ViewGroup parent) {
-                RingtonePickerActivity activity = (RingtonePickerActivity) getActivity();
+                RingtonePickerActivity activity = (RingtonePickerActivity) requireActivity();
                 view = view == null ? getLayoutInflater().inflate(R.layout.ringtone_item_sound, null) : view;
                 RingtoneItem item = mList.get(position);
                 TextView title = view.findViewById(R.id.ringtone_name);
@@ -89,18 +85,21 @@ public abstract class BasePickerFragment extends Fragment {
                 }
                 view.findViewById(R.id.sound_image_selected).setVisibility(activity.mCurrentItem.equals(item) ? View.VISIBLE : View.GONE);
 
-                Drawable d = activity.getDrawable(item.iconId);
-                d.setTint(activity.getColor(R.color.md_theme_surface));
+                Drawable drawable = AppCompatResources.getDrawable(requireContext(), item.iconId);
+                if (drawable == null) {
+                    return null;
+                }
+                drawable.setTint(activity.getColor(R.color.md_theme_surface));
                 ImageView image = view.findViewById(R.id.ringtone_image);
                 if (item.imageUri != null && Uri.parse(item.imageUri) != null) {
                     Picasso cropper = Picasso.get();
                     cropper.load(Uri.parse(item.imageUri))
-                            .placeholder(d)
+                            .placeholder(drawable)
                             .resizeDimen(R.dimen.ringtone_image_size, R.dimen.ringtone_image_size)
                             .centerCrop()
                             .into(image);
                 } else {
-                    image.setImageDrawable(d);
+                    image.setImageDrawable(drawable);
                 }
                 view.setOnClickListener(view1 -> {
                     RingtonePreviewKlaxon.stop(getActivity());
@@ -108,7 +107,7 @@ public abstract class BasePickerFragment extends Fragment {
                         activity.mCurrentItem = item;
                         RingtonePreviewKlaxon.start(getActivity(), Uri.parse(item.uri), AudioManager.STREAM_ALARM);
                         mAdapter.notifyDataSetChanged();
-                        for (int i = 0; i<=4; i++) {
+                        for (int i = 0; i <= 4; i++) {
                             (activity.mAdapter.getItem(i)).mAdapter.notifyDataSetChanged();
                         }
                     }

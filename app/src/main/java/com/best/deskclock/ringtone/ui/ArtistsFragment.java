@@ -24,7 +24,7 @@ public class ArtistsFragment extends BasePickerFragment {
                 null,
                 MediaStore.Audio.Artists.ARTIST);
 
-        ArrayList<RingtoneItem> list = new ArrayList<RingtoneItem>();
+        ArrayList<RingtoneItem> list = new ArrayList<>();
 
         while (cursor.moveToNext()) {
             Uri artist = Uri.withAppendedPath(

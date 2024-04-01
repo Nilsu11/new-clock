@@ -34,6 +34,7 @@ public class PlaylistsFragment extends BasePickerFragment {
                 MediaStore.Audio.Playlists._ID,
                 MediaStore.Audio.Playlists.NAME
         };
+
         Cursor cursor = context.getContentResolver().query(
                 MediaStore.Audio.Playlists.EXTERNAL_CONTENT_URI,
                 projection,
@@ -47,6 +48,7 @@ public class PlaylistsFragment extends BasePickerFragment {
             Uri artist = Uri.withAppendedPath(
                     MediaStore.Audio.Playlists.EXTERNAL_CONTENT_URI,
                     String.valueOf(cursor.getLong(0)));
+
             String artistName = cursor.getString(1);
             if (!artistName.equals(MediaStore.UNKNOWN_STRING)) {
                 RingtoneItem item = new RingtoneItem();

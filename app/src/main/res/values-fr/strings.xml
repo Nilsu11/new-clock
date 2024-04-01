@@ -31,6 +31,10 @@
     <string name="confirm_remove_custom_ringtone" msgid="1724111242265208553">"Les alarmes et les minuteurs qui utilisaient ce son émettront le son par défaut."</string>
     <string name="your_sounds" msgid="1672779351352629681">"Vos sons"</string>
     <string name="device_sounds" msgid="1584894148222639823">"Sons de l\'appareil"</string>
+    <string name="tab_songs">Musiques</string>
+    <string name="tab_albums">Albums</string>
+    <string name="tab_artists">Artistes</string>
+    <string name="tab_playlists">Playlists</string>
     <string name="custom_ringtone_lost_permissions" msgid="3406310054255354331">"Impossible d\'accéder au contenu sonore."</string>
     <string name="default_timer_ringtone_title" msgid="1370799536406862317">"Minuteur arrivé à expiration"</string>
     <string name="alarm_tomorrow" msgid="131356848787643420">"Demain"</string>
@@ -183,6 +187,7 @@
     <string name="alarm_volume_title" msgid="8506245173912428522">"Volume"</string>
     <string name="silent_ringtone_title" msgid="6177287302898634765">"Silencieux"</string>
     <string name="unknown_ringtone_title" msgid="6637522029614550112">"Inconnue"</string>
+    <string name="unknown_artist_title">Artiste inconnu</string>
     <string name="alarm_volume_muted" msgid="6658289289695673569">"Volume de l\'alarme coupé"</string>
     <string name="unmute_alarm_volume" msgid="2655009276035357497">"Réactiver le son"</string>
     <string name="silent_default_alarm_ringtone" msgid="6012855475009670997">"La sonnerie d\'alarme par défaut est silencieuse."</string>

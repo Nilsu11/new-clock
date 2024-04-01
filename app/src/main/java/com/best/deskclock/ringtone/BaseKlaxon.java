@@ -21,17 +21,16 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Collections;
+import java.util.Objects;
 
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
-import android.media.MediaPlayer.OnCompletionListener;
-import android.media.MediaPlayer.OnErrorListener;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.Message;
 import android.os.Vibrator;
 
@@ -43,11 +42,6 @@ import com.best.deskclock.provider.AlarmInstance;
  * Manages playing ringtone and vibrating the device.
  */
 public class BaseKlaxon {
-    private static final long[] sVibratePattern = new long[]{500, 500};
-
-    // Volume suggested by media team for in-call alarms.
-    // TODO: Use it
-    private static final float IN_CALL_VOLUME = 0.125f;
 
     private static final int INCREASING_VOLUME_START = 1;
     private static final int INCREASING_VOLUME_DELTA = 1;
@@ -55,8 +49,7 @@ public class BaseKlaxon {
     private static boolean sStarted = false;
     private static AudioManager sAudioManager = null;
     private static MediaPlayer sMediaPlayer = null;
-    private static List<Uri> mSongs = new ArrayList<Uri>();
-    private static Uri mCurrentTone;
+    private static List<Uri> mSongs = new ArrayList<>();
     private static int sCurrentIndex;
     private static int sCurrentVolume = INCREASING_VOLUME_START;
     private static int sSavedVolume;
@@ -65,32 +58,26 @@ public class BaseKlaxon {
     private static boolean sRandomPlayback;
     private static long sVolumeIncreaseSpeed;
     private static boolean sFirstFile;
-    private static Context sContext;
     private static boolean sRandomMusicMode;
     private static boolean sLocalMediaMode;
     private static boolean sPlayFallbackAlarm;
-    private static boolean sPlayerStarted;
     private static int mStream;
 
     // Internal messages
     private static final int INCREASING_VOLUME = 1001;
 
-    private static Handler sHandler = new Handler() {
+    private static final Handler sHandler = new Handler(Looper.myLooper()) {
         @Override
         public void handleMessage(Message msg) {
-            switch (msg.what) {
-                case INCREASING_VOLUME:
-                    if (sStarted) {
-                        sCurrentVolume += INCREASING_VOLUME_DELTA;
-                        if (sCurrentVolume <= sMaxVolume) {
-                            LogUtils.v("Increasing alarm volume to " + sCurrentVolume);
-                            sAudioManager.setStreamVolume(
-                                    mStream, sCurrentVolume, 0);
-                            sHandler.sendEmptyMessageDelayed(INCREASING_VOLUME,
-                                    sVolumeIncreaseSpeed);
-                        }
+            if (msg.what == INCREASING_VOLUME) {
+                if (sStarted) {
+                    sCurrentVolume += INCREASING_VOLUME_DELTA;
+                    if (sCurrentVolume <= sMaxVolume) {
+                        LogUtils.v("Increasing alarm volume to " + sCurrentVolume);
+                        sAudioManager.setStreamVolume(mStream, sCurrentVolume, 0);
+                        sHandler.sendEmptyMessageDelayed(INCREASING_VOLUME, sVolumeIncreaseSpeed);
                     }
-                    break;
+                }
             }
         }
     };
@@ -102,8 +89,7 @@ public class BaseKlaxon {
             sStarted = false;
             sHandler.removeMessages(INCREASING_VOLUME);
             // reset to default from before
-            sAudioManager.setStreamVolume(mStream,
-                    sSavedVolume, 0);
+            sAudioManager.setStreamVolume(mStream, sSavedVolume, 0);
             sAudioManager.abandonAudioFocus(null);
 
             // Stop audio playing
@@ -114,13 +100,11 @@ public class BaseKlaxon {
                 sMediaPlayer = null;
             }
 
-            ((Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE))
-                    .cancel();
+            ((Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE)).cancel();
         }
     }
 
     public static void start(final Context context, Uri alarmNoise, long crescendoDuration, int stream, int volume, boolean shuffle) {
-        sContext = context;
 
         // Make sure we are stop before starting
         stop(context);
@@ -131,8 +115,7 @@ public class BaseKlaxon {
         LogUtils.v("Volume increase interval " + sVolumeIncreaseSpeed);
 
         final Context appContext = context.getApplicationContext();
-        sAudioManager = (AudioManager) appContext
-                .getSystemService(Context.AUDIO_SERVICE);
+        sAudioManager = (AudioManager) appContext.getSystemService(Context.AUDIO_SERVICE);
         // save current value
         mStream = stream;
         sSavedVolume = sAudioManager.getStreamVolume(mStream);
@@ -150,7 +133,6 @@ public class BaseKlaxon {
         sRandomMusicMode = false;
         sLocalMediaMode = false;
         sPlayFallbackAlarm = false;
-        sPlayerStarted = false;
 
         sCurrentIndex = 0;
         if (alarmNoise != null) {
@@ -178,7 +160,7 @@ public class BaseKlaxon {
                         collectArtistSongs(context, alarmNoise);
                     }
                     if (MediaUtils.isStorageUri(alarmNoise.toString())) {
-                        collectFiles(context, alarmNoise);
+                        collectFiles(alarmNoise);
                     }
                     if (MediaUtils.isLocalPlaylistUri(alarmNoise.toString())) {
                         collectPlaylistSongs(context, alarmNoise);
@@ -208,12 +190,10 @@ public class BaseKlaxon {
         // do not play alarms if alarm volume is 0
         // this can only happen if "use system alarm volume" is used
         boolean playSound = (alarmNoise != null || sPlayFallbackAlarm) && sMaxVolume != 0;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            NotificationManager noMan = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-            int filter = noMan.getCurrentInterruptionFilter();
-            if (filter == NotificationManager.INTERRUPTION_FILTER_NONE) {
-                playSound = false;
-            }
+        NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        int filter = notificationManager.getCurrentInterruptionFilter();
+        if (filter == NotificationManager.INTERRUPTION_FILTER_NONE) {
+            playSound = false;
         }
 
         if (playSound) {
@@ -230,29 +210,21 @@ public class BaseKlaxon {
             return;
         }
         sMediaPlayer = new MediaPlayer();
-        sMediaPlayer.setOnErrorListener(new OnErrorListener() {
-            @Override
-            public boolean onError(MediaPlayer mp, int what, int extra) {
-                LogUtils.e("Error playing " + alarmNoise);
-                if (sLocalMediaMode || sRandomMusicMode) {
-                    LogUtils.e("Skipping file");
-                    mSongs.remove(alarmNoise);
-                    nextSong(context);
-                } else {
-                    LogUtils.e("playFallbackAlarm 1");
-                    playFallbackAlarm(sContext);
-                }
-                return true;
+        sMediaPlayer.setOnErrorListener((mp, what, extra) -> {
+            LogUtils.e("Error playing " + alarmNoise);
+            if (sLocalMediaMode || sRandomMusicMode) {
+                LogUtils.e("Skipping file");
+                mSongs.remove(alarmNoise);
+                nextSong(context);
+            } else {
+                LogUtils.e("playFallbackAlarm 1");
+                playFallbackAlarm(context);
             }
+            return true;
         });
 
         if (sLocalMediaMode || sRandomMusicMode) {
-            sMediaPlayer.setOnCompletionListener(new OnCompletionListener() {
-                @Override
-                public void onCompletion(MediaPlayer mp) {
-                    nextSong(context);
-                }
-            });
+            sMediaPlayer.setOnCompletionListener(mp -> nextSong(context));
         }
 
         try {
@@ -262,9 +234,8 @@ public class BaseKlaxon {
             } else {
                 LogUtils.v("startAlarm for :" + alarmNoise);
                 sMediaPlayer.setDataSource(context, alarmNoise);
-                mCurrentTone = alarmNoise;
             }
-            startAlarm(context, sMediaPlayer);
+            startAlarm(sMediaPlayer);
         } catch (Exception ex) {
             LogUtils.e("Error playing " + alarmNoise, ex);
             if (sLocalMediaMode || sRandomMusicMode) {
@@ -279,7 +250,7 @@ public class BaseKlaxon {
                     // Must reset the media player to clear the error state.
                     sMediaPlayer.reset();
                     setDataSourceFromResource(context, sMediaPlayer, R.raw.alarm_expire);
-                    startAlarm(context, sMediaPlayer);
+                    startAlarm(sMediaPlayer);
                 } catch (Exception ex2) {
                     // At this point we just don't play anything.
                     LogUtils.e("Failed to play fallback ringtone", ex2);
@@ -289,7 +260,7 @@ public class BaseKlaxon {
     }
 
     // Do the common stuff when starting the alarm.
-    private static void startAlarm(final Context context, MediaPlayer player) throws IOException {
+    private static void startAlarm(MediaPlayer player) {
         if (!sStarted) {
             return;
         }
@@ -297,42 +268,34 @@ public class BaseKlaxon {
 
         LogUtils.v("Using audio stream " + (mStream == AudioManager.STREAM_MUSIC ? "Music" : "Alarm"));
         player.setAudioStreamType(mStream);
-        sAudioManager.requestAudioFocus(null, mStream,
-                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
+        sAudioManager.requestAudioFocus(null, mStream, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
 
         if (!sRandomMusicMode && !sLocalMediaMode) {
             player.setLooping(true);
         }
 
-        player.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
-            @Override
-            public void onPrepared(MediaPlayer player) {
-                LogUtils.v("onPrepared");
+        player.setOnPreparedListener(player1 -> {
+            LogUtils.v("onPrepared");
 
-                sPlayerStarted = true;
-                // only start volume handling on the first invocation
-                if (sFirstFile) {
-                    if (sIncreasingVolume) {
-                        startVolumeIncrease();
-                    } else {
-                        sAudioManager.setStreamVolume(mStream,
-                                sMaxVolume, 0);
-                        LogUtils.v("Alarm volume " + sMaxVolume);
-                    }
-                    sFirstFile = false;
+            // only start volume handling on the first invocation
+            if (sFirstFile) {
+                if (sIncreasingVolume) {
+                    startVolumeIncrease();
+                } else {
+                    sAudioManager.setStreamVolume(mStream, sMaxVolume, 0);
+                    LogUtils.v("Alarm volume " + sMaxVolume);
                 }
-                player.start();
+                sFirstFile = false;
             }
+            player1.start();
         });
         player.prepareAsync();
     }
 
-    private static void setDataSourceFromResource(Context context,
-                                                  MediaPlayer player, int res) throws IOException {
+    private static void setDataSourceFromResource(Context context, MediaPlayer player, int res) throws IOException {
         AssetFileDescriptor afd = context.getResources().openRawResourceFd(res);
         if (afd != null) {
-            player.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(),
-                    afd.getLength());
+            player.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
             afd.close();
         }
     }
@@ -376,7 +339,7 @@ public class BaseKlaxon {
     private static void nextSong(final Context context) {
         if (mSongs.size() == 0) {
             LogUtils.v("playFallbackAlarm 2");
-            playFallbackAlarm(sContext);
+            playFallbackAlarm(context);
             return;
         }
         sCurrentIndex++;
@@ -391,18 +354,18 @@ public class BaseKlaxon {
         playAlarm(context, song);
     }
 
-    private static void collectFiles(Context context, Uri folderUri) {
+    private static void collectFiles(Uri folderUri) {
         mSongs.clear();
 
         File folder = new File(folderUri.getPath());
         if (folder.exists() && folder.isDirectory()) {
-            for (final File fileEntry : folder.listFiles()) {
+            for (final File fileEntry : Objects.requireNonNull(folder.listFiles())) {
                 if (!fileEntry.isDirectory()) {
                     if (MediaUtils.isValidAudioFile(fileEntry.getName())) {
                         mSongs.add(Uri.fromFile(fileEntry));
                     }
                 } else {
-                    collectSub(context, fileEntry);
+                    collectSub(fileEntry);
                 }
             }
             if (sRandomPlayback) {
@@ -413,15 +376,15 @@ public class BaseKlaxon {
         }
     }
 
-    private static void collectSub(Context context, File folder) {
+    private static void collectSub(File folder) {
         if (folder.exists() && folder.isDirectory()) {
-            for (final File fileEntry : folder.listFiles()) {
+            for (final File fileEntry : Objects.requireNonNull(folder.listFiles())) {
                 if (!fileEntry.isDirectory()) {
                     if (MediaUtils.isValidAudioFile(fileEntry.getName())) {
                         mSongs.add(Uri.fromFile(fileEntry));
                     }
                 } else {
-                    collectSub(context, fileEntry);
+                    collectSub(fileEntry);
                 }
             }
         }
@@ -462,14 +425,11 @@ public class BaseKlaxon {
 
     private static void startVolumeIncrease() {
         sCurrentVolume = INCREASING_VOLUME_START;
-        sAudioManager.setStreamVolume(mStream,
-                sCurrentVolume, 0);
-        LogUtils.v("Starting alarm volume " + sCurrentVolume
-                + " max volume " + sMaxVolume);
+        sAudioManager.setStreamVolume(mStream, sCurrentVolume, 0);
+        LogUtils.v("Starting alarm volume " + sCurrentVolume + " max volume " + sMaxVolume);
 
         if (sCurrentVolume < sMaxVolume) {
-            sHandler.sendEmptyMessageDelayed(INCREASING_VOLUME,
-                    sVolumeIncreaseSpeed);
+            sHandler.sendEmptyMessageDelayed(INCREASING_VOLUME, sVolumeIncreaseSpeed);
         }
     }
 }

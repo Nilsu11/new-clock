@@ -20,7 +20,6 @@ package com.best.deskclock.ringtone.ui;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -31,25 +30,22 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
-import androidx.core.graphics.ColorUtils;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentFactory;
 import androidx.fragment.app.FragmentPagerAdapter;
 import androidx.viewpager.widget.ViewPager;
 
-import com.best.deskclock.LogUtils;
 import com.best.deskclock.R;
+import com.best.deskclock.Utils;
 import com.best.deskclock.alarms.AlarmUpdateHandler;
 import com.best.deskclock.data.DataModel;
 import com.best.deskclock.provider.Alarm;
 import com.best.deskclock.ringtone.RingtoneItem;
 import com.best.deskclock.ringtone.RingtonePreviewKlaxon;
-import com.best.deskclock.widget.CollapsingToolbarBaseActivity;
 import com.google.android.material.tabs.TabLayout;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -65,9 +61,6 @@ public class RingtonePickerActivity extends AppCompatActivity {
 
     /** Key to an extra that defines the uri representing the default ringtone. */
     private static final String EXTRA_IS_SLEEP = "extra_is_sleep";
-
-    /** Key to an extra that defines the name of the default ringtone. */
-    private static final String EXTRA_DEFAULT_RINGTONE_NAME = "extra_default_ringtone_name";
 
     /**
      * @return an intent that launches the ringtone picker to edit the ringtone of the given
@@ -102,6 +95,9 @@ public class RingtonePickerActivity extends AppCompatActivity {
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        Utils.applyTheme(this);
+
         setContentView(R.layout.ringtone_picker_activity);
 
         final Toolbar toolbar = findViewById(R.id.toolbar);
@@ -122,7 +118,7 @@ public class RingtonePickerActivity extends AppCompatActivity {
         mAlarmId = intent.getLongExtra(EXTRA_ALARM_ID, -1);
         mCurrentItem = new RingtoneItem();
 
-        mCurrentItem.uri = ((Uri) intent.getParcelableExtra(EXTRA_RINGTONE_URI)).toString();
+        mCurrentItem.uri = intent.getParcelableExtra(EXTRA_RINGTONE_URI).toString();
 
         Context context = getApplicationContext();
         // setup tabs
@@ -135,11 +131,8 @@ public class RingtonePickerActivity extends AppCompatActivity {
         mAdapter.addTab(AlbumsFragment.class, context.getString(R.string.tab_albums));
         mAdapter.addTab(ArtistsFragment.class, context.getString(R.string.tab_artists));
         mAdapter.addTab(PlaylistsFragment.class, context.getString(R.string.tab_playlists));
-        // indicator color
-        int c = getColor(R.color.md_theme_primary);
-        c = Color.argb(88, Color.red(c), Color.green(c), Color.blue(c));
         mTabLayout = findViewById(R.id.tab_layout);
-        mTabLayout.setSelectedTabIndicatorColor(c);
+        mTabLayout.setSelectedTabIndicatorColor(getColor(R.color.md_theme_surface));
         viewPager.setAdapter(mAdapter);
         mTabLayout.setupWithViewPager(viewPager);
         mTabLayout.selectTab(mTabLayout.getTabAt(mSelectedTab));
@@ -160,7 +153,7 @@ public class RingtonePickerActivity extends AppCompatActivity {
             }
         });
 
-        getWindow().setNavigationBarColor(ColorUtils.compositeColors(c, getColor(R.color.md_theme_surface)));
+        getWindow().setNavigationBarColor(getColor(R.color.md_theme_surface));
     }
 
     @Override
@@ -203,28 +196,23 @@ public class RingtonePickerActivity extends AppCompatActivity {
     class TabsAdapter extends FragmentPagerAdapter
             implements ViewPager.OnPageChangeListener {
 
+        private final ArrayList<TabInfo> mTabs = new ArrayList<>();
+        private final Context mContext;
 
         final class TabInfo {
-            public final Class<?> mClss;
+            public final Class<?> mClass;
             public final CharSequence mTitle;
 
             TabInfo(Class<?> clss, CharSequence title) {
-                mClss = clss;
+                mClass = clss;
                 mTitle = title;
             }
         }
 
-        private final ArrayList<TabInfo> mTabs = new ArrayList<TabInfo>();
-        private Context mContext;
-        private ViewPager mPager;
-        // Used for doing callbacks to fragments.
-        private HashSet<String> mFragmentTags = new HashSet<String>();
-
         public TabsAdapter(AppCompatActivity activity, ViewPager pager) {
             super(activity.getSupportFragmentManager());
             mContext = activity;
-            mPager = pager;
-            mPager.setAdapter(this);
+            pager.setAdapter(this);
         }
 
         @NonNull
@@ -237,16 +225,11 @@ public class RingtonePickerActivity extends AppCompatActivity {
             if (fragment == null) {
                 TabInfo info = mTabs.get(position);
                 Class<? extends Fragment> clazz = FragmentFactory.loadFragmentClass(
-                        mContext.getClassLoader(), info.mClss.getName());
+                        mContext.getClassLoader(), info.mClass.getName());
                 try {
                     fragment = (BasePickerFragment) clazz.getConstructor().newInstance();
-                } catch (IllegalAccessException e) {
-                    throw new RuntimeException(e);
-                } catch (InstantiationException e) {
-                    throw new RuntimeException(e);
-                } catch (InvocationTargetException e) {
-                    throw new RuntimeException(e);
-                } catch (NoSuchMethodException e) {
+                } catch (IllegalAccessException | InstantiationException |
+                         InvocationTargetException | NoSuchMethodException e) {
                     throw new RuntimeException(e);
                 }
             }
@@ -295,17 +278,5 @@ public class RingtonePickerActivity extends AppCompatActivity {
             // Do nothing
         }
 
-        public void registerPageChangedListener(Fragment frag) {
-            String tag = frag.getTag();
-            if (mFragmentTags.contains(tag)) {
-                LogUtils.wtf("Trying to add an existing fragment " + tag);
-            } else {
-                mFragmentTags.add(frag.getTag());
-            }
-        }
-
-        public void unregisterPageChangedListener(Fragment frag) {
-            mFragmentTags.remove(frag.getTag());
-        }
     }
 }
