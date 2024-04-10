@@ -36,6 +36,7 @@ import android.os.Vibrator;
 
 import com.best.deskclock.LogUtils;
 import com.best.deskclock.R;
+import com.best.deskclock.Utils;
 import com.best.deskclock.provider.AlarmInstance;
 
 /**
@@ -43,25 +44,23 @@ import com.best.deskclock.provider.AlarmInstance;
  */
 public class BaseKlaxon {
 
-    private static final int INCREASING_VOLUME_START = 1;
-    private static final int INCREASING_VOLUME_DELTA = 1;
-
     private static boolean sStarted = false;
     private static AudioManager sAudioManager = null;
     private static MediaPlayer sMediaPlayer = null;
     private static List<Uri> mSongs = new ArrayList<>();
     private static int sCurrentIndex;
-    private static int sCurrentVolume = INCREASING_VOLUME_START;
     private static int sSavedVolume;
     private static int sMaxVolume;
     private static boolean sIncreasingVolume;
     private static boolean sRandomPlayback;
-    private static long sVolumeIncreaseSpeed;
+    private static long sCrescendoDuration;
+    private static long mCrescendoStopTime;
     private static boolean sFirstFile;
     private static boolean sRandomMusicMode;
     private static boolean sLocalMediaMode;
     private static boolean sPlayFallbackAlarm;
     private static int mStream;
+    private static int mRingtonePlayRetries = 0;
 
     // Internal messages
     private static final int INCREASING_VOLUME = 1001;
@@ -70,13 +69,8 @@ public class BaseKlaxon {
         @Override
         public void handleMessage(Message msg) {
             if (msg.what == INCREASING_VOLUME) {
-                if (sStarted) {
-                    sCurrentVolume += INCREASING_VOLUME_DELTA;
-                    if (sCurrentVolume <= sMaxVolume) {
-                        LogUtils.v("Increasing alarm volume to " + sCurrentVolume);
-                        sAudioManager.setStreamVolume(mStream, sCurrentVolume, 0);
-                        sHandler.sendEmptyMessageDelayed(INCREASING_VOLUME, sVolumeIncreaseSpeed);
-                    }
+                if (sStarted && adjustVolume()) {
+                    sHandler.sendEmptyMessageDelayed(INCREASING_VOLUME, sCrescendoDuration);
                 }
             }
         }
@@ -111,8 +105,8 @@ public class BaseKlaxon {
 
         LogUtils.i("BaseKlaxon.start() ");
 
-        sVolumeIncreaseSpeed = crescendoDuration;
-        LogUtils.v("Volume increase interval " + sVolumeIncreaseSpeed);
+        sCrescendoDuration = crescendoDuration;
+        LogUtils.v("Volume increase interval " + sCrescendoDuration);
 
         final Context appContext = context.getApplicationContext();
         sAudioManager = (AudioManager) appContext.getSystemService(Context.AUDIO_SERVICE);
@@ -424,12 +418,79 @@ public class BaseKlaxon {
     }
 
     private static void startVolumeIncrease() {
-        sCurrentVolume = INCREASING_VOLUME_START;
-        sAudioManager.setStreamVolume(mStream, sCurrentVolume, 0);
-        LogUtils.v("Starting alarm volume " + sCurrentVolume + " max volume " + sMaxVolume);
-
-        if (sCurrentVolume < sMaxVolume) {
-            sHandler.sendEmptyMessageDelayed(INCREASING_VOLUME, sVolumeIncreaseSpeed);
+        if (adjustVolume()) {
+            sHandler.sendEmptyMessageDelayed(INCREASING_VOLUME, 50);
         }
+    }
+    public static boolean adjustVolume() {
+
+        // If ringtone is absent, ignore volume adjustment.
+        if (sMediaPlayer == null) {
+            sCrescendoDuration = 0;
+            mCrescendoStopTime = 0;
+            return false;
+        }
+
+        // If ringtone is not playing, to avoid being muted forever recheck
+        // to ensure reliability.
+        if (!sStarted && !sMediaPlayer.isPlaying()) {
+            if (mRingtonePlayRetries < 10) {
+                mRingtonePlayRetries++;
+                // Reuse the crescendo messaging looper to return here
+                // again.
+                return true;
+            }
+
+            mRingtonePlayRetries = 0;
+            sCrescendoDuration = 0;
+            mCrescendoStopTime = 0;
+            return false;
+        }
+
+        if (mRingtonePlayRetries > 0) {
+            mRingtonePlayRetries = 0;
+            // Compute again the time at which the crescendo will stop.
+            mCrescendoStopTime = Utils.now() + sCrescendoDuration;
+        }
+
+        // If the crescendo is complete set the volume to the maximum; we're done.
+        final long currentTime = Utils.now();
+        if (currentTime > mCrescendoStopTime) {
+            sCrescendoDuration = 0;
+            mCrescendoStopTime = 0;
+            sMediaPlayer.setVolume(1, 1);
+            return false;
+        }
+
+        final float volume = computeVolume(currentTime, mCrescendoStopTime, sCrescendoDuration);
+        sMediaPlayer.setVolume(volume,volume);
+
+        // Schedule the next volume bump in the crescendo.
+        return true;
+    }
+
+
+
+    /**
+     * @param currentTime current time of the device
+     * @param stopTime    time at which the crescendo finishes
+     * @param duration    length of time over which the crescendo occurs
+     * @return the scalar volume value that produces a linear increase in volume (in decibels)
+     */
+    private static float computeVolume(long currentTime, long stopTime, long duration) {
+        // Compute the percentage of the crescendo that has completed.
+        final float elapsedCrescendoTime = stopTime - currentTime;
+        final float fractionComplete = 1 - (elapsedCrescendoTime / duration);
+
+        // Use the fraction to compute a target decibel between -40dB (near silent) and 0dB (max).
+        final float gain = (fractionComplete * 40) - 40;
+
+        // Convert the target gain (in decibels) into the corresponding volume scalar.
+        final float volume = (float) Math.pow(10f, gain / 20f);
+
+        LogUtils.v("Ringtone crescendo %,.2f%% complete (scalar: %f, volume: %f dB)",
+                fractionComplete * 100, volume, gain);
+
+        return volume;
     }
 }
