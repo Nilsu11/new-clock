@@ -51,7 +51,6 @@ public class BaseKlaxon {
     private static int sCurrentIndex;
     private static int sSavedVolume;
     private static int sMaxVolume;
-    private static boolean sIncreasingVolume;
     private static boolean sRandomPlayback;
     private static long sCrescendoDuration;
     private static long mCrescendoStopTime;
@@ -70,7 +69,7 @@ public class BaseKlaxon {
         public void handleMessage(Message msg) {
             if (msg.what == INCREASING_VOLUME) {
                 if (sStarted && adjustVolume()) {
-                    sHandler.sendEmptyMessageDelayed(INCREASING_VOLUME, sCrescendoDuration);
+                    sHandler.sendEmptyMessageDelayed(INCREASING_VOLUME, 50);
                 }
             }
         }
@@ -113,7 +112,6 @@ public class BaseKlaxon {
         // save current value
         mStream = stream;
         sSavedVolume = sAudioManager.getStreamVolume(mStream);
-        sIncreasingVolume = crescendoDuration > 0;
         sRandomPlayback = shuffle;
         sFirstFile = true;
         sStarted = true;
@@ -273,12 +271,11 @@ public class BaseKlaxon {
 
             // only start volume handling on the first invocation
             if (sFirstFile) {
-                if (sIncreasingVolume) {
-                    startVolumeIncrease();
-                } else {
-                    sAudioManager.setStreamVolume(mStream, sMaxVolume, 0);
-                    LogUtils.v("Alarm volume " + sMaxVolume);
+                if (adjustVolume()) {
+                    sHandler.sendEmptyMessageDelayed(INCREASING_VOLUME, 50);
                 }
+                sAudioManager.setStreamVolume(mStream, sMaxVolume, 0);
+                LogUtils.v("Alarm volume " + sMaxVolume);
                 sFirstFile = false;
             }
             player1.start();
@@ -416,24 +413,11 @@ public class BaseKlaxon {
             playAlarm(context, null);
         }
     }
-
-    private static void startVolumeIncrease() {
-        if (adjustVolume()) {
-            sHandler.sendEmptyMessageDelayed(INCREASING_VOLUME, 50);
-        }
-    }
     public static boolean adjustVolume() {
-
-        // If ringtone is absent, ignore volume adjustment.
-        if (sMediaPlayer == null) {
-            sCrescendoDuration = 0;
-            mCrescendoStopTime = 0;
-            return false;
-        }
 
         // If ringtone is not playing, to avoid being muted forever recheck
         // to ensure reliability.
-        if (!sStarted && !sMediaPlayer.isPlaying()) {
+        if (!sStarted || !sMediaPlayer.isPlaying()) {
             if (mRingtonePlayRetries < 10) {
                 mRingtonePlayRetries++;
                 // Reuse the crescendo messaging looper to return here
