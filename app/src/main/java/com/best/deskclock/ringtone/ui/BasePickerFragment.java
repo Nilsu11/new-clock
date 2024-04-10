@@ -31,6 +31,7 @@ import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.fragment.app.Fragment;
 
@@ -67,7 +68,7 @@ public abstract class BasePickerFragment extends Fragment {
     public ArrayAdapter<RingtoneItem> adapter(ArrayList<RingtoneItem> list) {
         return new ArrayAdapter<>(getActivity(), R.layout.ringtone_item_sound, list) {
             @Override
-            public View getView(int position, View view, ViewGroup parent) {
+            public View getView(int position, View view, @NonNull ViewGroup parent) {
                 RingtonePickerActivity activity = (RingtonePickerActivity) requireActivity();
                 view = view == null ? getLayoutInflater().inflate(R.layout.ringtone_item_sound, null) : view;
                 RingtoneItem item = mList.get(position);
@@ -102,16 +103,25 @@ public abstract class BasePickerFragment extends Fragment {
                     image.setImageDrawable(drawable);
                 }
                 view.setOnClickListener(view1 -> {
-                    RingtonePreviewKlaxon.stop(getActivity());
                     if (!activity.mCurrentItem.equals(item)) {
                         activity.mCurrentItem = item;
-                        RingtonePreviewKlaxon.start(getActivity(), Uri.parse(item.uri), AudioManager.STREAM_ALARM);
                         mAdapter.notifyDataSetChanged();
                         for (int i = 0; i <= 4; i++) {
                             (activity.mAdapter.getItem(i)).mAdapter.notifyDataSetChanged();
                         }
                     }
+                    if (!item.isPlaying) {
+                        item.isPlaying = true;
+                        RingtonePreviewKlaxon.start(getActivity(), Uri.parse(item.uri), AudioManager.STREAM_ALARM);
+                    } else {
+                        RingtonePreviewKlaxon.stop(getActivity());
+                        item.isPlaying = false;
+                    }
                 });
+
+                if (!activity.mCurrentItem.equals(item)) {
+                    item.isPlaying = false;
+                }
 
                 return view;
             }

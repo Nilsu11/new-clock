@@ -10,4 +10,5 @@ public class RingtoneItem {
     public String desc;
     public String uri;
     public int tab;
+    public boolean isPlaying = false;
 }
