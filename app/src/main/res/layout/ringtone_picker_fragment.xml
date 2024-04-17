@@ -24,6 +24,8 @@
         android:id="@+id/ringtone_content"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:fastScrollEnabled="true"
+        android:fastScrollAlwaysVisible="true"
         tools:listitem="@layout/ringtone_item_sound" />
 
 </FrameLayout>
