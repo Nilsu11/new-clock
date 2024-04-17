@@ -8,8 +8,8 @@ import static com.best.deskclock.uidata.UiDataModel.Tab.BEDTIME;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Color;
 import android.graphics.PorterDuff;
+import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.Vibrator;
@@ -96,17 +96,17 @@ public final class BedtimeFragment extends DeskClockFragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         view = inflater.inflate(R.layout.bedtime_fragment, container, false);
 
-        mContext = getContext();
+        mContext = requireContext();
         mBedtimeView = view.findViewById(R.id.bedtime_view);
         mMainLayout = view.findViewById(R.id.main);
 
         mEmptyView = view.findViewById(R.id.bedtime_empty_view);
-        final Drawable noAlarmsIcon = Utils.toScaledBitmapDrawable(getContext(), R.drawable.ic_alarm_off, 2.5f);
+        final Drawable noAlarmsIcon = Utils.toScaledBitmapDrawable(mContext, R.drawable.ic_alarm_off, 2.5f);
         if (noAlarmsIcon != null) {
-            noAlarmsIcon.setTint(getContext().getColor(R.color.md_theme_onSurfaceVariant));
+            noAlarmsIcon.setTint(mContext.getColor(R.color.md_theme_onSurfaceVariant));
         }
         mEmptyView.setCompoundDrawablesWithIntrinsicBounds(null, noAlarmsIcon, null, null);
-        mEmptyView.setCompoundDrawablePadding(Utils.toPixel(30, getContext()));
+        mEmptyView.setCompoundDrawablePadding(Utils.toPixel(30, mContext));
 
         mEmptyViewController = new EmptyViewController(mBedtimeView, mMainLayout, mEmptyView);
 
@@ -180,6 +180,10 @@ public final class BedtimeFragment extends DeskClockFragment {
                     ? AlarmItemViewHolder.CLOCK_ENABLED_ALPHA
                     : AlarmItemViewHolder.CLOCK_DISABLED_ALPHA
             );
+            mHoursOfSleep.setTypeface(mSaver.enabled && alarm.enabled
+                    ? Typeface.DEFAULT_BOLD
+                    : Typeface.DEFAULT
+            );
         } else {
             mHoursOfSleep.setText(R.string.wakeup_alarm_non_existent);
         }
@@ -211,9 +215,14 @@ public final class BedtimeFragment extends DeskClockFragment {
     //Wake stuff is almost done, only ringtone picking makes problems makes problems
     //moved here for better structure
     private void showWakeupBottomSheetDialog(Alarm alarm) {
-        mBottomSheetDialog = new BottomSheetDialog(getContext());
+        mBottomSheetDialog = new BottomSheetDialog(mContext);
         mBottomSheetDialog.setContentView(R.layout.bedtime_wakeup_bottom_sheet);
         mBottomSheetDialog.getBehavior().setState(BottomSheetBehavior.STATE_EXPANDED);
+
+        final String getDarkMode = DataModel.getDataModel().getDarkMode();
+        if (Utils.isNight(getResources()) && getDarkMode.equals(KEY_AMOLED_DARK_MODE)) {
+            mBottomSheetDialog.getWindow().setNavigationBarColor(mContext.getColor(R.color.md_theme_surface));
+        }
 
         mRingtone = mBottomSheetDialog.findViewById(R.id.choose_ringtone_bedtime);
         mClock = mBottomSheetDialog.findViewById(R.id.wake_time);
@@ -245,6 +254,10 @@ public final class BedtimeFragment extends DeskClockFragment {
                 mHoursOfSleep.setAlpha(mSaver.enabled && alarm.enabled
                         ? AlarmItemViewHolder.CLOCK_ENABLED_ALPHA
                         : AlarmItemViewHolder.CLOCK_DISABLED_ALPHA
+                );
+                mHoursOfSleep.setTypeface(mSaver.enabled && alarm.enabled
+                        ? Typeface.DEFAULT_BOLD
+                        : Typeface.DEFAULT
                 );
                 Events.sendBedtimeEvent(checked
                         ? R.string.action_enable
@@ -289,7 +302,7 @@ public final class BedtimeFragment extends DeskClockFragment {
         alarm.enabled = false;
         alarm.daysOfWeek = Weekdays.fromBits(31);
         alarm.label = BEDLABEL;
-        alarm.alert = DataModel.getDataModel().getDefaultAlarmRingtoneUri();
+        alarm.alert = DataModel.getDataModel().getAlarmRingtoneUriFromSettings();
         alarm.vibrate = false;
         mTxtWakeup.setTime(8, 30);
         mTxtWakeup.setAlpha(AlarmItemViewHolder.CLOCK_DISABLED_ALPHA);
@@ -301,7 +314,7 @@ public final class BedtimeFragment extends DeskClockFragment {
     // Build button for each day.
     private void buildWakeButton(BottomSheetDialog bottomSheetDialog, Alarm alarm){
         mRepeatDays = bottomSheetDialog.findViewById(R.id.repeat_days_bedtime);
-        final LayoutInflater inflaters = LayoutInflater.from(getContext());
+        final LayoutInflater inflaters = LayoutInflater.from(mContext);
         final List<Integer> weekdays = DataModel.getDataModel().getWeekdayOrder().getCalendarDays();
         // Build button for each day.
         for (int i = 0; i < 7; i++) {
@@ -432,17 +445,19 @@ public final class BedtimeFragment extends DeskClockFragment {
 
     //Bedtime bottom sheet
     public void showBedtimeBottomSheetDialog() {
-        mBottomSheetDialog = new BottomSheetDialog(getContext());
+        mBottomSheetDialog = new BottomSheetDialog(mContext);
         mBottomSheetDialog.setContentView(R.layout.bedtime_bottom_sheet);
         mBottomSheetDialog.getBehavior().setState(BottomSheetBehavior.STATE_EXPANDED);
         mClock = mBottomSheetDialog.findViewById(R.id.bedtime_time);
         mOnOff = mBottomSheetDialog.findViewById(R.id.toggle_switch_bedtime);
         mNotifList = mBottomSheetDialog.findViewById(R.id.notif_spinner);
+
         final String getDarkMode = DataModel.getDataModel().getDarkMode();
         if (Utils.isNight(mContext.getResources()) && getDarkMode.equals(KEY_AMOLED_DARK_MODE)) {
-            // Change color of the drop down arrow of Spinner
-            mNotifList.getBackground().setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN);
+            mNotifList.getPopupBackground().setColorFilter(mContext.getColor(R.color.md_theme_surface), PorterDuff.Mode.SRC_IN);
+            mBottomSheetDialog.getWindow().setNavigationBarColor(mContext.getColor(R.color.md_theme_surface));
         }
+
         mDnd = mBottomSheetDialog.findViewById(R.id.dnd_switch);
         mWall = mBottomSheetDialog.findViewById(R.id.wall_switch);
         buildButton(mBottomSheetDialog);
@@ -464,6 +479,10 @@ public final class BedtimeFragment extends DeskClockFragment {
                 mHoursOfSleep.setAlpha(mSaver.enabled && mAlarm != null && mAlarm.enabled
                         ? AlarmItemViewHolder.CLOCK_ENABLED_ALPHA
                         : AlarmItemViewHolder.CLOCK_DISABLED_ALPHA
+                );
+                mHoursOfSleep.setTypeface(mSaver.enabled && mAlarm != null && mAlarm.enabled
+                        ? Typeface.DEFAULT_BOLD
+                        : Typeface.DEFAULT
                 );
                 Events.sendBedtimeEvent(checked ? R.string.action_enable : R.string.action_disable, R.string.label_deskclock);
 
@@ -517,7 +536,7 @@ public final class BedtimeFragment extends DeskClockFragment {
 
     private void buildButton(BottomSheetDialog bottomSheetDialog){
         mRepeatDays = bottomSheetDialog.findViewById(R.id.repeat_days_bedtime);
-        final LayoutInflater inflaters = LayoutInflater.from(getContext());
+        final LayoutInflater inflaters = LayoutInflater.from(mContext);
         final List<Integer> weekdays = DataModel.getDataModel().getWeekdayOrder().getCalendarDays();
         // Build button for each day.
         for (int i = 0; i < 7; i++) {
@@ -612,7 +631,7 @@ public final class BedtimeFragment extends DeskClockFragment {
     private void ShowMaterialTimePicker(int hour, int minute) {
 
         @TimeFormat int clockFormat;
-        boolean isSystem24Hour = DateFormat.is24HourFormat(getContext());
+        boolean isSystem24Hour = DateFormat.is24HourFormat(mContext);
         clockFormat = isSystem24Hour ? TimeFormat.CLOCK_24H : TimeFormat.CLOCK_12H;
 
         MaterialTimePicker materialTimePicker = new MaterialTimePicker.Builder()
@@ -621,8 +640,8 @@ public final class BedtimeFragment extends DeskClockFragment {
                 .setHour(hour)
                 .setMinute(minute)
                 .build();
-        Context context = getContext();
-        materialTimePicker.show(((AppCompatActivity) context).getSupportFragmentManager(), TAG);
+
+        materialTimePicker.show(((AppCompatActivity) mContext).getSupportFragmentManager(), TAG);
 
         materialTimePicker.addOnPositiveButtonClickListener(dialog -> {
             int newHour = materialTimePicker.getHour();

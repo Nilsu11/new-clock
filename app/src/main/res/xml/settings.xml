@@ -61,6 +61,10 @@
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/alarm_settings">
+        <Preference
+            android:key="default_alarm_ringtone"
+            android:title="@string/default_alarm_ringtone_title" />
+
         <ListPreference
             android:key="auto_silence"
             android:title="@string/auto_silence_title"
@@ -147,6 +151,14 @@
             android:key="screensaver_settings"
             android:title="@string/screensaver_settings"
             android:summary="@string/screensaver_settings_summary" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:title="@string/permission_category_title">
+        <Preference
+            android:key="permissions_management"
+            android:title="@string/permission_management_title"
+            android:summary="@string/permission_management_summary" />
     </PreferenceCategory>
 
 </PreferenceScreen>

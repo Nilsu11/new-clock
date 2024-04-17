@@ -16,13 +16,13 @@
 
 package com.best.deskclock.alarms;
 
-import android.app.Fragment;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.format.DateFormat;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.Fragment;
 
 import com.best.deskclock.AlarmClockFragment;
 import com.best.deskclock.LabelDialogFragment;
@@ -31,7 +31,6 @@ import com.best.deskclock.R;
 import com.best.deskclock.Utils;
 import com.best.deskclock.alarms.dataadapter.AlarmItemHolder;
 import com.best.deskclock.data.DataModel;
-import com.best.deskclock.data.Weekdays;
 import com.best.deskclock.events.Events;
 import com.best.deskclock.provider.Alarm;
 import com.best.deskclock.ringtone.ui.RingtonePickerActivity;
@@ -59,7 +58,7 @@ public final class AlarmTimeClickHandler {
                                  AlarmUpdateHandler alarmUpdateHandler, ScrollHandler smoothScrollController) {
 
         mFragment = fragment;
-        mContext = mFragment.getActivity().getApplicationContext();
+        mContext = mFragment.requireActivity().getApplicationContext();
         mAlarmUpdateHandler = alarmUpdateHandler;
         mScrollHandler = smoothScrollController;
         if (savedState != null) {
@@ -98,36 +97,6 @@ public final class AlarmTimeClickHandler {
         }
     }
 
-    public void setAlarmRepeatEnabled(Alarm alarm, boolean isEnabled) {
-        final Calendar now = Calendar.getInstance();
-        final Calendar oldNextAlarmTime = alarm.getNextAlarmTime(now);
-        final String alarmId = String.valueOf(alarm.id);
-        if (isEnabled) {
-            // Set all previously set days
-            // or
-            // Set all days if no previous.
-            final int bitSet = mPreviousDaysOfWeekMap.getInt(alarmId);
-            alarm.daysOfWeek = Weekdays.fromBits(bitSet);
-            if (!alarm.daysOfWeek.isRepeating()) {
-                alarm.daysOfWeek = Weekdays.ALL;
-            }
-        } else {
-            // Remember the set days in case the user wants it back.
-            final int bitSet = alarm.daysOfWeek.getBits();
-            mPreviousDaysOfWeekMap.putInt(alarmId, bitSet);
-
-            // Remove all repeat days
-            alarm.daysOfWeek = Weekdays.NONE;
-        }
-
-        // if the change altered the next scheduled alarm time, tell the user
-        final Calendar newNextAlarmTime = alarm.getNextAlarmTime(now);
-        final boolean popupToast = !oldNextAlarmTime.equals(newNextAlarmTime);
-
-        Events.sendAlarmEvent(R.string.action_toggle_repeat_days, R.string.label_deskclock);
-        mAlarmUpdateHandler.asyncUpdateAlarm(alarm, popupToast, false);
-    }
-
     public void setDayOfWeekEnabled(Alarm alarm, boolean checked, int index) {
         final Calendar now = Calendar.getInstance();
         final Calendar oldNextAlarmTime = alarm.getNextAlarmTime(now);
@@ -153,6 +122,12 @@ public final class AlarmTimeClickHandler {
         LOGGER.d("Deleting alarm.");
     }
 
+    public void onDuplicateClicked(AlarmItemHolder itemHolder) {
+        final Alarm alarm = itemHolder.item;
+        mAlarmUpdateHandler.asyncAddAlarm(alarm);
+        LOGGER.d("Adding alarm.");
+    }
+
     public void onClockClicked(Alarm alarm) {
         mSelectedAlarm = alarm;
         Events.sendAlarmEvent(R.string.action_set_time, R.string.label_deskclock);
@@ -171,7 +146,7 @@ public final class AlarmTimeClickHandler {
                 .setHour(hour)
                 .setMinute(minute)
                 .build();
-        Context context = mFragment.getContext();
+        Context context = mFragment.requireContext();
         materialTimePicker.show(((AppCompatActivity) context).getSupportFragmentManager(), TAG);
 
         materialTimePicker.addOnPositiveButtonClickListener(dialog -> {
@@ -192,7 +167,7 @@ public final class AlarmTimeClickHandler {
     public void onEditLabelClicked(Alarm alarm) {
         Events.sendAlarmEvent(R.string.action_set_label, R.string.label_deskclock);
         final LabelDialogFragment fragment = LabelDialogFragment.newInstance(alarm, alarm.label, mFragment.getTag());
-        LabelDialogFragment.show(mFragment.getFragmentManager(), fragment);
+        LabelDialogFragment.show(mFragment.getParentFragmentManager(), fragment);
     }
 
     public void onTimeSet(int hourOfDay, int minute) {

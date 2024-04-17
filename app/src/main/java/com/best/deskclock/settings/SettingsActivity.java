@@ -57,6 +57,7 @@ public final class SettingsActivity extends CollapsingToolbarBaseActivity {
     public static final String KEY_DARK_MODE = "dark_mode";
     public static final String KEY_DEFAULT_DARK_MODE = "default";
     public static final String KEY_AMOLED_DARK_MODE = "amoled";
+    public static final String KEY_DEFAULT_ALARM_RINGTONE = "default_alarm_ringtone";
     public static final String KEY_ALARM_SNOOZE = "snooze_duration";
     public static final String KEY_ALARM_CRESCENDO = "alarm_crescendo_duration";
     public static final String KEY_TIMER_CRESCENDO = "timer_crescendo_duration";
@@ -80,6 +81,7 @@ public final class SettingsActivity extends CollapsingToolbarBaseActivity {
     public static final String DEFAULT_POWER_BEHAVIOR = "0";
     public static final String POWER_BEHAVIOR_SNOOZE = "1";
     public static final String POWER_BEHAVIOR_DISMISS = "2";
+    public static final String KEY_PERMISSIONS_MANAGEMENT = "permissions_management";
     public static final String PREFS_FRAGMENT_TAG = "prefs_fragment";
     public static final String PREFERENCE_DIALOG_FRAGMENT_TAG = "preference_dialog";
 
@@ -97,13 +99,6 @@ public final class SettingsActivity extends CollapsingToolbarBaseActivity {
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
-
-        getSupportFragmentManager().findFragmentById(R.id.main);
-    }
-
-    @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         menu.add(0, Menu.NONE, 0, R.string.about_title)
                 .setIcon(R.drawable.ic_about).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
@@ -112,10 +107,6 @@ public final class SettingsActivity extends CollapsingToolbarBaseActivity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == android.R.id.home) {
-            getOnBackPressedDispatcher().onBackPressed();
-            return true;
-        }
         if (item.getItemId() == 0) {
             final Intent settingIntent = new Intent(getApplicationContext(), AboutActivity.class);
             startActivity(settingIntent);
@@ -199,6 +190,7 @@ public final class SettingsActivity extends CollapsingToolbarBaseActivity {
                     final TwoStatePreference timerVibratePref = (TwoStatePreference) pref;
                     DataModel.getDataModel().setTimerVibrate(timerVibratePref.isChecked());
                 }
+                case KEY_DEFAULT_ALARM_RINGTONE -> pref.setSummary(DataModel.getDataModel().getAlarmRingtoneTitle());
                 case KEY_TIMER_RINGTONE -> pref.setSummary(DataModel.getDataModel().getTimerRingtoneTitle());
             }
             // Set result so DeskClock knows to refresh itself
@@ -226,8 +218,18 @@ public final class SettingsActivity extends CollapsingToolbarBaseActivity {
                     startActivity(dialogIntent);
                     return true;
                 }
+                case KEY_DEFAULT_ALARM_RINGTONE -> {
+                    startActivity(RingtonePickerActivity.createAlarmRingtonePickerIntentForSettings(context));
+                    return true;
+                }
                 case KEY_TIMER_RINGTONE -> {
                     startActivity(RingtonePickerActivity.createTimerRingtonePickerIntent(context));
+                    return true;
+                }
+                case KEY_PERMISSIONS_MANAGEMENT -> {
+                    final Intent permissionsManagementIntent = new Intent(context, PermissionsManagementActivity.class);
+                    startActivity(permissionsManagementIntent);
+                    requireActivity().setResult(RESULT_OK);
                     return true;
                 }
             }
@@ -330,6 +332,10 @@ public final class SettingsActivity extends CollapsingToolbarBaseActivity {
             weekStartPref.setSummary(weekStartPref.getEntries()[idx]);
             weekStartPref.setOnPreferenceChangeListener(this);
 
+            final Preference alarmRingtonePref = findPreference(KEY_DEFAULT_ALARM_RINGTONE);
+            Objects.requireNonNull(alarmRingtonePref).setOnPreferenceClickListener(this);
+            alarmRingtonePref.setSummary(DataModel.getDataModel().getAlarmRingtoneTitle());
+
             final Preference timerRingtonePref = findPreference(KEY_TIMER_RINGTONE);
             Objects.requireNonNull(timerRingtonePref).setOnPreferenceClickListener(this);
             timerRingtonePref.setSummary(DataModel.getDataModel().getTimerRingtoneTitle());
@@ -339,6 +345,9 @@ public final class SettingsActivity extends CollapsingToolbarBaseActivity {
 
             final ListPreference shakeActionPref = findPreference(KEY_SHAKE_ACTION);
             setupFlipOrShakeAction(shakeActionPref);
+
+            final Preference permissionsManagement = findPreference(KEY_PERMISSIONS_MANAGEMENT);
+            Objects.requireNonNull(permissionsManagement).setOnPreferenceClickListener(this);
         }
 
         private void setupFlipOrShakeAction(ListPreference preference) {

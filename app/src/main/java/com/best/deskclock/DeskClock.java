@@ -16,13 +16,6 @@
 
 package com.best.deskclock;
 
-import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
-import static android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS;
-import static android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS;
-import static android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS;
-import static android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT;
-import static android.provider.Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS;
-import static android.provider.Settings.EXTRA_APP_PACKAGE;
 import static android.text.format.DateUtils.SECOND_IN_MILLIS;
 import static androidx.viewpager.widget.ViewPager.SCROLL_STATE_DRAGGING;
 import static androidx.viewpager.widget.ViewPager.SCROLL_STATE_IDLE;
@@ -30,37 +23,28 @@ import static androidx.viewpager.widget.ViewPager.SCROLL_STATE_SETTLING;
 import static com.best.deskclock.AnimatorUtils.getScaleAnimator;
 import static com.best.deskclock.settings.SettingsActivity.KEY_AMOLED_DARK_MODE;
 
-import android.Manifest;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
 import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
-import android.app.Fragment;
-import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.PowerManager;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.TextView;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.StringRes;
 import androidx.appcompat.app.ActionBar;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.NotificationManagerCompat;
-import androidx.core.content.ContextCompat;
+import androidx.fragment.app.Fragment;
 import androidx.viewpager.widget.ViewPager;
 import androidx.viewpager.widget.ViewPager.OnPageChangeListener;
 
@@ -70,6 +54,7 @@ import com.best.deskclock.data.DataModel.SilentSetting;
 import com.best.deskclock.data.OnSilentSettingsListener;
 import com.best.deskclock.events.Events;
 import com.best.deskclock.provider.Alarm;
+import com.best.deskclock.settings.PermissionsManagementActivity;
 import com.best.deskclock.settings.SettingsActivity;
 import com.best.deskclock.stopwatch.StopwatchService;
 import com.best.deskclock.timer.TimerService;
@@ -80,18 +65,12 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.navigation.NavigationBarView;
 import com.google.android.material.snackbar.Snackbar;
 
-import java.util.ArrayList;
-
 /**
  * The main activity of the application which displays 5 different tabs contains alarms, world
  * clocks, timers, stopwatch and bedtime.
  */
 public class DeskClock extends AppCompatActivity
         implements FabContainer, LabelDialogFragment.AlarmLabelDialogHandler {
-
-    private static final String PERMISSION_POWER_OFF_ALARM = "org.codeaurora.permission.POWER_OFF_ALARM";
-    private static final int CODE_FOR_POWER_OFF_ALARM = 1;
-    private static final int CODE_STORAGE = 2;
 
     public static final int REQUEST_CHANGE_SETTINGS = 10;
 
@@ -217,24 +196,15 @@ public class DeskClock extends AppCompatActivity
 
         Utils.applyTheme(this);
 
-        final ActionBar actionBar = getSupportActionBar();
-        if (actionBar != null) {
-            actionBar.setDisplayHomeAsUpEnabled(true);
-            actionBar.setDisplayShowHomeEnabled(true);
-        }
-
         setContentView(R.layout.desk_clock);
 
         mSnackbarAnchor = findViewById(R.id.content);
 
-        // Check the essential permissions to be granted by the user.
+        // Seems necessary if the application is launched from a widget
+        isFirstLaunch();
+
         checkPermissions();
 
-        // Show dialog to present the main features of the application
-        // and the necessary permissions to be granted by the user.
-        firstRunDialog();
-
-        // Displays the right tab if the application has been closed and then reopened from the notification.
         showTabFromNotifications();
 
         // Configure the buttons shared by the tabs.
@@ -326,19 +296,23 @@ public class DeskClock extends AppCompatActivity
         final String getDarkMode = DataModel.getDataModel().getDarkMode();
         mBottomNavigation = findViewById(R.id.bottom_view);
         mBottomNavigation.setOnItemSelectedListener(mNavigationListener);
+        mBottomNavigation.setItemActiveIndicatorEnabled(false);
+        mBottomNavigation.setItemIconTintList(new ColorStateList(
+                new int[][]{{android.R.attr.state_selected}, {android.R.attr.state_pressed}, {}},
+                new int[]{getColor(R.color.md_theme_primary), getColor(R.color.md_theme_primary), getColor(R.color.md_theme_onBackground)})
+        );
         if (Utils.isNight(getResources()) && getDarkMode.equals(KEY_AMOLED_DARK_MODE)) {
             mBottomNavigation.setBackgroundColor(Color.BLACK);
-            mBottomNavigation.setItemActiveIndicatorEnabled(false);
             mBottomNavigation.setItemTextColor(new ColorStateList(
-                    new int[][]{{android.R.attr.state_selected}, {android.R.attr.state_pressed}, {}},
-                    new int[]{getColor(R.color.md_theme_primary), getColor(R.color.md_theme_primary), Color.WHITE})
-            );
-            mBottomNavigation.setItemIconTintList(new ColorStateList(
                     new int[][]{{android.R.attr.state_selected}, {android.R.attr.state_pressed}, {}},
                     new int[]{getColor(R.color.md_theme_primary), getColor(R.color.md_theme_primary), Color.WHITE})
             );
         } else {
             mBottomNavigation.setBackgroundColor(getColor(R.color.md_theme_surface));
+            mBottomNavigation.setItemTextColor(new ColorStateList(
+                    new int[][]{{android.R.attr.state_selected}, {android.R.attr.state_pressed}, {}},
+                    new int[]{getColor(R.color.md_theme_primary), getColor(R.color.md_theme_primary), getColor(R.color.md_theme_onBackground)})
+            );
         }
 
         // Honor changes to the selected tab from outside entities.
@@ -356,7 +330,7 @@ public class DeskClock extends AppCompatActivity
     @Override
     protected void onResume() {
         super.onResume();
-        // Displays the right tab if the application has been minimized and then reopened from the notification.
+
         showTabFromNotifications();
 
         // ViewPager does not save state; this honors the selected tab in the user interface.
@@ -401,10 +375,6 @@ public class DeskClock extends AppCompatActivity
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == android.R.id.home) {
-            getOnBackPressedDispatcher().onBackPressed();
-            return true;
-        }
         if (item.getItemId() == 0) {
             final Intent settingIntent = new Intent(getApplicationContext(), SettingsActivity.class);
             startActivityForResult(settingIntent, REQUEST_CHANGE_SETTINGS);
@@ -418,7 +388,7 @@ public class DeskClock extends AppCompatActivity
      */
     @Override
     public void onDialogLabelSet(Alarm alarm, String label, String tag) {
-        final Fragment frag = getFragmentManager().findFragmentByTag(tag);
+        final Fragment frag = getSupportFragmentManager().findFragmentByTag(tag);
         if (frag instanceof AlarmClockFragment) {
             ((AlarmClockFragment) frag).setLabel(alarm, label);
         }
@@ -468,137 +438,42 @@ public class DeskClock extends AppCompatActivity
         }
     }
 
-    public void firstRunDialog() {
-        boolean isFirstRun = getSharedPreferences("PREFERENCE", MODE_PRIVATE).getBoolean("FIRST_RUN_KEY", true);
+    /**
+     * Check if this is the first time the application has been launched.
+     */
+    private void isFirstLaunch() {
+        final boolean isFirstRun = getSharedPreferences("PREFERENCE", MODE_PRIVATE).getBoolean("isFirstRun", true);
         if (isFirstRun) {
-            new AlertDialog.Builder(this)
-                    .setIcon(R.mipmap.ic_launcher)
-                    .setTitle(R.string.dialog_title_for_the_first_launch)
-                    .setMessage(R.string.dialog_message_for_the_first_launch)
-                    .setPositiveButton(R.string.dialog_button_understood, (d, i) ->
-                            getSharedPreferences("PREFERENCE", MODE_PRIVATE)
-                                    .edit()
-                                    .putBoolean("FIRST_RUN_KEY", false)
-                                    .apply()
-                    )
-                    .setCancelable(false)
-                    .show();
+            startActivity(new Intent(this, FirstLaunch.class));
+            finish();
         }
     }
 
+    /**
+     * Check the essential permissions to be granted by the user.
+     */
     private void checkPermissions() {
-        final NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        final PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+        if (!PermissionsManagementActivity.isIgnoringBatteryOptimizations(this)
+                || !PermissionsManagementActivity.isDNDPermissionGranted(this)
+                || !PermissionsManagementActivity.areNotificationsEnabled(this)
+                || Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+                && !PermissionsManagementActivity.areFullScreenNotificationsEnabled(this)
+                || !PermissionsManagementActivity.isStoragePermissionsGranted(this)) {
 
-        // Check permission for Power Off Alarm (only works if available in the device)
-        if (checkSelfPermission(PERMISSION_POWER_OFF_ALARM) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{PERMISSION_POWER_OFF_ALARM}, CODE_FOR_POWER_OFF_ALARM);
-        }
-
-
-        // storage Permission
-        boolean needRequest = false;
-        String[] permissions = {
-                Manifest.permission.READ_MEDIA_AUDIO
-        };
-        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
-            permissions[0] = Manifest.permission.READ_EXTERNAL_STORAGE;
-        }
-        final ArrayList<String> permissionList = new ArrayList<String>();
-        for (String permission : permissions) {
-            if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
-                permissionList.add(permission);
-                needRequest = true;
-            }
-        }
-
-        if (needRequest) {
-            int count = permissionList.size();
-            if (count > 0) {
-                final String[] permissionArray = new String[count];
-                for (int i = 0; i < count; i++) {
-                    permissionArray[i] = permissionList.get(i);
-                }
-                Handler handler = new Handler();
-                handler.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        requestPermissions(permissionArray, CODE_STORAGE);
-                    }
-                }, 1000);
-            }
-        }
-
-        // Check if Do Not Disturb is disabled in the device
-        if (!notificationManager.isNotificationPolicyAccessGranted()) {
-            new AlertDialog.Builder(this)
-                    .setTitle(R.string.dialog_title_do_not_disturb)
-                    .setMessage(R.string.dialog_message_do_not_disturb)
-                    .setPositiveButton(R.string.dialog_button_do_not_disturb, (dialog, position) ->
-                            startActivity(new Intent(ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)
-                                    .addFlags(FLAG_ACTIVITY_NEW_TASK)))
-                    .setCancelable(false)
-                    .show();
-        }
-
-        // Check if Ignore Battery Optimizations is disabled in the device
-        if (!powerManager.isIgnoringBatteryOptimizations(getPackageName())) {
-            new AlertDialog.Builder(this)
-                    .setTitle(R.string.dialog_title_ignore_battery_optimization)
-                    .setMessage(R.string.dialog_message_ignore_battery_optimization)
-                    .setPositiveButton(R.string.dialog_button_ignore_battery_optimization, (dialog, position) ->
-                            startActivity(new Intent(ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-                                    .addFlags(FLAG_ACTIVITY_NEW_TASK)))
-                    .setCancelable(false)
-                    .show();
-        }
-
-        // Check if Notifications are disabled in the device
-        if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) {
-            new AlertDialog.Builder(this)
-                    .setTitle(R.string.dialog_title_notifications)
-                    .setMessage(R.string.dialog_message_notifications)
-                    .setPositiveButton(R.string.dialog_button_notifications, (dialog, position) -> {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            startActivity(new Intent(ACTION_APP_NOTIFICATION_SETTINGS)
-                                    .putExtra(EXTRA_APP_PACKAGE, getPackageName())
-                                    .addFlags(FLAG_ACTIVITY_NEW_TASK));
-                        } else {
-                            startActivity(new Intent(ACTION_APPLICATION_DETAILS_SETTINGS)
-                                    .setData(Uri.fromParts("package", getPackageName(), null))
-                                    .addFlags(FLAG_ACTIVITY_NEW_TASK));
-                        }
-                    })
-                    .setCancelable(false)
-                    .show();
-        }
-
-        // Check if Full Screen Notification is disabled in the device (for Android 14+ only)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            if (!notificationManager.canUseFullScreenIntent()) {
-                new AlertDialog.Builder(this)
-                        .setTitle(R.string.dialog_title_full_screen_intent)
-                        .setMessage(R.string.dialog_message_full_screen_intent)
-                        .setPositiveButton(R.string.dialog_button_full_screen_intent, (dialog, position) ->
-                                startActivity(new Intent(ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT)
-                                        .setData(Uri.fromParts("package", getPackageName(), null))
-                                        .addFlags(FLAG_ACTIVITY_NEW_TASK)))
-                        .setCancelable(false)
-                        .show();
-            }
+            Snackbar snackbar = Snackbar.make(mSnackbarAnchor,
+                    R.string.snackbar_permission_message, 7000).setAction(R.string.snackbar_permission_action, v ->
+                    startActivity(new Intent(this, PermissionsManagementActivity.class)));
+            View snackView = snackbar.getView();
+            TextView snackTextView = (TextView) snackView.findViewById(com.google.android.material.R.id.snackbar_text);
+            // Necessary because on some devices the text is truncated.
+            snackTextView.setMaxLines(5);
+            snackbar.show();
         }
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == CODE_FOR_POWER_OFF_ALARM) {
-            LogUtils.i("Power off alarm permission is granted.");
-        } else if (requestCode == CODE_STORAGE) {
-            LogUtils.i("Storage permission is granted");
-        }
-    }
-
+    /**
+     * Displays the right tab if the application has been closed and then reopened from the notification.
+     */
     private void showTabFromNotifications() {
         final Intent intent = getIntent();
         if (intent != null) {

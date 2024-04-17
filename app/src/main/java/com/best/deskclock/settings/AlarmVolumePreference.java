@@ -109,7 +109,7 @@ public class AlarmVolumePreference extends Preference {
             public void onStopTrackingTouch(SeekBar seekBar) {
                 if (!mPreviewPlaying) {
                     // If we are not currently playing, start.
-                    RingtonePreviewKlaxon.start(context, DataModel.getDataModel().getDefaultAlarmRingtoneUri(), STREAM_ALARM);
+                    RingtonePreviewKlaxon.start(context, DataModel.getDataModel().getAlarmRingtoneUriFromSettings(), STREAM_ALARM);
                     mPreviewPlaying = true;
                     seekBar.postDelayed(() -> {
                         RingtonePreviewKlaxon.stop(context);

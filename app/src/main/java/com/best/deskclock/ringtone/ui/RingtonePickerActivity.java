@@ -73,6 +73,13 @@ public class RingtonePickerActivity extends AppCompatActivity {
                 .putExtra(EXTRA_RINGTONE_URI, alarm.alert);
     }
 
+    public static Intent createAlarmRingtonePickerIntentForSettings(Context context) {
+        final DataModel dataModel = DataModel.getDataModel();
+        return new Intent(context, RingtonePickerActivity.class)
+                .putExtra(EXTRA_TITLE, R.string.default_alarm_ringtone_title)
+                .putExtra(EXTRA_RINGTONE_URI, dataModel.getAlarmRingtoneUriFromSettings());
+    }
+
     /**
      * @return an intent that launches the ringtone picker to edit the ringtone of all timers
      */
@@ -172,14 +179,14 @@ public class RingtonePickerActivity extends AppCompatActivity {
                         alarm.alert = Uri.parse(mCurrentItem.uri);
 
                         handler.post(() -> {
-                            DataModel.getDataModel().setDefaultAlarmRingtoneUri(alarm.alert);
-
                             // Start a second background task to persist the updated alarm.
                             new AlarmUpdateHandler(context, null, null)
                                     .asyncUpdateAlarm(alarm, false, true);
                         });
                     }
                 });
+            } else if (getSupportActionBar().getTitle().equals(getString(R.string.default_alarm_ringtone_title))) {
+                DataModel.getDataModel().setAlarmRingtoneUriFromSettings(Uri.parse(mCurrentItem.uri));
             } else {
                 DataModel.getDataModel().setTimerRingtoneUri(Uri.parse(mCurrentItem.uri));
             }
